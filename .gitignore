@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Output reports
+digest-*.md
+
+# Environment
+.env
+.env.*
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
