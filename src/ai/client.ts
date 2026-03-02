@@ -8,7 +8,7 @@ import { createClaudeClient } from './claude.js';
 // ============================================================================
 
 export const PROVIDER_PRESETS: Record<ProviderId, { baseUrl: string; model: string }> = {
-  glm:      { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.7' },
+  glm:      { baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4', model: 'glm-4.7' },
   openai:   { baseUrl: 'https://api.openai.com/v1',            model: 'gpt-4o-mini' },
   deepseek: { baseUrl: 'https://api.deepseek.com/v1',          model: 'deepseek-chat' },
   kimi:     { baseUrl: 'https://api.moonshot.cn/v1',            model: 'moonshot-v1-8k' },
