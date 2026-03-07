@@ -21,36 +21,6 @@ function humanizeTime(pubDate: Date): string {
 // Mermaid Charts
 // ============================================================================
 
-function generateKeywordBarChart(articles: ScoredArticle[]): string {
-  const kwCount = new Map<string, number>();
-  for (const a of articles) {
-    for (const kw of a.keywords) {
-      const normalized = kw.toLowerCase();
-      kwCount.set(normalized, (kwCount.get(normalized) || 0) + 1);
-    }
-  }
-
-  const sorted = Array.from(kwCount.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12);
-
-  if (sorted.length === 0) return '';
-
-  const labels = sorted.map(([k]) => `"${k}"`).join(', ');
-  const values = sorted.map(([, v]) => v).join(', ');
-  const maxVal = sorted[0][1];
-
-  let chart = '```mermaid\n';
-  chart += `xychart-beta horizontal\n`;
-  chart += `    title "高频关键词"\n`;
-  chart += `    x-axis [${labels}]\n`;
-  chart += `    y-axis "出现次数" 0 --> ${maxVal + 2}\n`;
-  chart += `    bar [${values}]\n`;
-  chart += '```\n';
-
-  return chart;
-}
-
 function generateCategoryPieChart(articles: ScoredArticle[]): string {
   const catCount = new Map<CategoryId, number>();
   for (const a of articles) {
@@ -71,64 +41,6 @@ function generateCategoryPieChart(articles: ScoredArticle[]): string {
   chart += '```\n';
 
   return chart;
-}
-
-// ============================================================================
-// ASCII Charts
-// ============================================================================
-
-function generateAsciiBarChart(articles: ScoredArticle[]): string {
-  const kwCount = new Map<string, number>();
-  for (const a of articles) {
-    for (const kw of a.keywords) {
-      const normalized = kw.toLowerCase();
-      kwCount.set(normalized, (kwCount.get(normalized) || 0) + 1);
-    }
-  }
-
-  const sorted = Array.from(kwCount.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-
-  if (sorted.length === 0) return '';
-
-  const maxVal = sorted[0][1];
-  const maxBarWidth = 20;
-  const maxLabelLen = Math.max(...sorted.map(([k]) => k.length));
-
-  let chart = '```\n';
-  for (const [label, value] of sorted) {
-    const barLen = Math.max(1, Math.round((value / maxVal) * maxBarWidth));
-    const bar = '█'.repeat(barLen) + '░'.repeat(maxBarWidth - barLen);
-    chart += `${label.padEnd(maxLabelLen)} │ ${bar} ${value}\n`;
-  }
-  chart += '```\n';
-
-  return chart;
-}
-
-// ============================================================================
-// Tag Cloud
-// ============================================================================
-
-function generateTagCloud(articles: ScoredArticle[]): string {
-  const kwCount = new Map<string, number>();
-  for (const a of articles) {
-    for (const kw of a.keywords) {
-      const normalized = kw.toLowerCase();
-      kwCount.set(normalized, (kwCount.get(normalized) || 0) + 1);
-    }
-  }
-
-  const sorted = Array.from(kwCount.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20);
-
-  if (sorted.length === 0) return '';
-
-  return sorted
-    .map(([word, count], i) => i < 3 ? `**${word}**(${count})` : `${word}(${count})`)
-    .join(' · ');
 }
 
 // ============================================================================
@@ -208,34 +120,6 @@ export function generateDigestReport(articles: ScoredArticle[], highlights: stri
     report += `---\n\n`;
   }
 
-  // Visual Statistics
-  report += `## 📊 数据概览\n\n`;
-
-  report += `| 扫描源 | 抓取文章 | 时间范围 | 精选 |\n`;
-  report += `|:---:|:---:|:---:|:---:|\n`;
-  report += `| ${stats.successFeeds}/${stats.totalFeeds} | ${stats.totalArticles} 篇 → ${stats.filteredArticles} 篇 | ${stats.hours}h | **${articles.length} 篇** |\n\n`;
-
-  const pieChart = generateCategoryPieChart(articles);
-  if (pieChart) {
-    report += `### 分类分布\n\n${pieChart}\n`;
-  }
-
-  const barChart = generateKeywordBarChart(articles);
-  if (barChart) {
-    report += `### 高频关键词\n\n${barChart}\n`;
-  }
-
-  const asciiChart = generateAsciiBarChart(articles);
-  if (asciiChart) {
-    report += `<details>\n<summary>📈 纯文本关键词图（终端友好）</summary>\n\n${asciiChart}\n</details>\n\n`;
-  }
-
-  const tagCloud = generateTagCloud(articles);
-  if (tagCloud) {
-    report += `### 🏷️ 话题标签\n\n${tagCloud}\n\n`;
-  }
-
-  report += `---\n\n`;
 
   // Category-Grouped Articles
   const categoryGroups = new Map<CategoryId, ScoredArticle[]>();
@@ -246,18 +130,21 @@ export function generateDigestReport(articles: ScoredArticle[], highlights: stri
   }
 
   const sortedCategories = Array.from(categoryGroups.entries())
-    .sort((a, b) => b[1].length - a[1].length);
+    .sort((a, b) => {
+      const maxScoreA = Math.max(...a[1].map(x => x.score));
+      const maxScoreB = Math.max(...b[1].map(x => x.score));
+      return maxScoreB - maxScoreA;
+    });
 
-  let globalIndex = 0;
   for (const [catId, catArticles] of sortedCategories) {
     const catMeta = CATEGORY_META[catId];
     report += `## ${catMeta.emoji} ${catMeta.label}\n\n`;
 
-    for (const a of catArticles) {
-      globalIndex++;
+    for (let i = 0; i < catArticles.length; i++) {
+      const a = catArticles[i]!;
       const scoreTotal = a.scoreBreakdown.relevance + a.scoreBreakdown.quality + a.scoreBreakdown.timeliness;
 
-      report += `### ${globalIndex}. ${a.titleZh || a.title}\n\n`;
+      report += `### ${i + 1}. ${a.titleZh || a.title}\n\n`;
       report += `[${a.title}](${a.link}) — **${a.sourceName}** · ${humanizeTime(a.pubDate)} · ⭐ ${scoreTotal}/30\n\n`;
       report += `> ${a.summary}\n\n`;
       if (a.keywords.length > 0) {
@@ -265,6 +152,12 @@ export function generateDigestReport(articles: ScoredArticle[], highlights: stri
       }
       report += `---\n\n`;
     }
+  }
+
+  // Category Distribution
+  const pieChart = generateCategoryPieChart(articles);
+  if (pieChart) {
+    report += `## 📊 分类分布\n\n${pieChart}\n`;
   }
 
   // Footer
